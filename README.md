@@ -8,8 +8,6 @@ This repository contains implementations of classical algorithms for primality t
 - [Algorithms Implemented](#algorithms-implemented)  
 - [Code Structure](#code-structure)  
 - [References](#references)  
-- [Contributing](#contributing)  
-- [License](#license)  
 
 ## Introduction  
 
@@ -33,8 +31,32 @@ This project provides a comprehensive toolkit for primality testing and integer 
 
 ```plaintext  
 Classical-Algorithm-for-Factorization/  
-├── primality_testing.py       # Primality testing functions  
-├── factorization.py           # Main factorization script  
-├── quadratic_sieve.py         # Quadratic Sieve implementation  
-├── gnfs/                      # General Number Field Sieve (C code)  
-└── README.md                  # Project documentation  
+├── Continued_Fraction_Algorithm.ipynb   # Implementation of the Continued Fraction Algorithm  
+├── FermatFactorization.ipynb            # Implementation of Fermat's Factorization  
+├── trial_division.ipynb                 # Implementation of Trial Division Algorithm  
+├── pollards_rho.ipynb                   # Implementation of Pollard's Rho Algorithm  
+├── MillerRabinPrimality.py              # Miller-Rabin Primality Test Implementation  
+├── wheel_factorization.py               # Implementation of Wheel Factorization Algorithm  
+├── prime.json                           # JSON file containing precomputed primes for optimization  
+├── Manage_Primes.py                     # Utility script for managing prime numbers  
+└── __pycache__/                         # Python bytecode cache directory
+```
+
+## References
+
+1. **Wheel Factorization** - Wikipedia Article:  
+   [https://en.m.wikipedia.org/wiki/Wheel_factorization](https://en.m.wikipedia.org/wiki/Wheel_factorization)
+
+2. **Pollard's Rho Algorithm** - Wikipedia Article:  
+   [https://en.m.wikipedia.org/wiki/Pollard%27s_rho_algorithm](https://en.m.wikipedia.org/wiki/Pollard%27s_rho_algorithm)
+
+3. **Quadratic Sieve Algorithm Implementation** - GitHub Repository by NachiketUN:  
+   [https://github.com/NachiketUN/Quadratic-Sieve-Algorithm](https://github.com/NachiketUN/Quadratic-Sieve-Algorithm)
+
+4. **General Number Field Sieve Implementation** - GitHub Repository by MathSquared:  
+   [https://github.com/MathSquared/general-number-field-sieve](https://github.com/MathSquared/general-number-field-sieve)
+
+5. **Primality Testing & Factorization** - YouTube Playlist:  
+   [https://youtube.com/playlist?list=PLLtQL9wSL16gTZ-OjCJNHe8E6GWPWpvRi](https://youtube.com/playlist?list=PLLtQL9wSL16gTZ-OjCJNHe8E6GWPWpvRi)
+
+      
