@@ -13,6 +13,13 @@ This repository contains implementations of classical algorithms for primality t
 
 This project provides a comprehensive toolkit for primality testing and integer factorization. Designed for both educational and research purposes, these algorithms showcase various mathematical techniques and optimizations.  
 
+## Project Overview  
+
+This repository was initially created as part of a term paper for the course **PHY631: Quantum Computing and Quantum Information**, taught by **Prof. Arvind** at IISER Mohali. It provides a comprehensive collection of classical algorithms for primality testing and integer factorization, including advanced techniques like the **Quadratic Sieve** and the **General Number Field Sieve**.  
+
+The repository is designed for students, researchers, and enthusiasts in computational mathematics, cryptography, and quantum computing who are interested in understanding and implementing these fundamental algorithms.  
+
+
 ## Algorithms Implemented  
 
 ### Primality Testing  
