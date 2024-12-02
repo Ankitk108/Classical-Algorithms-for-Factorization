@@ -38,15 +38,17 @@ The repository is designed for students, researchers, and enthusiasts in computa
 
 ```plaintext  
 Classical-Algorithm-for-Factorization/  
-├── Continued_Fraction_Algorithm.ipynb   # Implementation of the Continued Fraction Algorithm  
-├── FermatFactorization.ipynb            # Implementation of Fermat's Factorization  
-├── trial_division.ipynb                 # Implementation of Trial Division Algorithm  
-├── pollards_rho.ipynb                   # Implementation of Pollard's Rho Algorithm  
-├── MillerRabinPrimality.py              # Miller-Rabin Primality Test Implementation  
-├── wheel_factorization.py               # Implementation of Wheel Factorization Algorithm  
-├── prime.json                           # JSON file containing precomputed primes for optimization  
-├── Manage_Primes.py                     # Utility script for managing prime numbers  
-└── __pycache__/                         # Python bytecode cache directory
+├── Continued_Fraction_Algorithm.ipynb        # Implementation of the Continued Fraction Algorithm  
+├── Classical_Algorithm_for_Factorization.pdf # PDF of Term Paper 
+├──FermatFactorization.ipynb                  # Implementation of Fermat's Factorization  
+├── trial_division.ipynb                      # Implementation of Trial Division Algorithm  
+├── pollards_rho.ipynb                        # Implementation of Pollard's Rho Algorithm  
+├── MillerRabinPrimality.py                   # Miller-Rabin Primality Test Implementation  
+├── main.tex                                  # Latex File   
+├──wheel_factorization.py                     # Implementation of Wheel Factorization Algorithm  
+├── prime.json                                # JSON file containing precomputed primes for optimization  
+├── Manage_Primes.py                          # Utility script for managing prime numbers  
+└── __pycache__/                              # Python bytecode cache directory
 ```
 
 ## References
