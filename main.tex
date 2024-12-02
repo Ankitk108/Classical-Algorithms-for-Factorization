@@ -1,0 +1,1354 @@
+\documentclass[12pt]{report}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{hyperref}
+\bibliographystyle{num}
+
+% Customizing the code environment
+\lstset{
+    basicstyle=\ttfamily\small,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    keywordstyle=\color{blue},
+    stringstyle=\color{red},
+    commentstyle=\color{green!60!black},
+    breaklines=true,
+    frame=single
+}
+
+% Customizing hyperlink settings to remove red border
+\hypersetup{
+    colorlinks=true,    % Set to false for colored boxes, true for colored text links
+    linkcolor=black,    % Set TOC link color to black
+    citecolor=black,    % Set citation color to black
+    filecolor=black,    % Set file link color to black
+    urlcolor=blue,      % Set URL color to blue (optional)
+    linkbordercolor=white % Remove the link border color
+}
+
+\begin{document}
+\title{Classical Algorithms for Factorization}
+\author{Project Report for PHY631 \\
+Instructor: Professor Arvind \\
+Submiited By Ankit (MS22189)}
+\date{December 2024}
+\maketitle
+
+\tableofcontents  % This generates the Table of Contents
+\clearpage  % Forces the TOC to appear on a new page
+
+\section{Introduction}
+Factorization is a fundamental concept in number theory with applications in cryptography, particularly in algorithms like RSA. This report discusses classical algorithms for factorization, including their theoretical underpinnings and practical implementations.
+
+The Python implementations of these algorithms are available in the following GitHub repository for further exploration and experimentation:
+\begin{center}
+\textbf{\href{https://github.com/Ankitk108/Classical-Algorithms-for-Factorization}{GitHub Repository: Classical Factorization Algorithms}}
+\end{center}
+
+Below are the libraries used in the Python code:
+\begin{lstlisting}[language=Python]
+import json
+import math
+import random
+\end{lstlisting}
+
+
+\section{Primality Testing}
+Before factorization, a crucial step is determining whether a number is prime. In this project, two approaches were used:
+\begin{enumerate}
+    \item \textbf{Small Numbers}: A precomputed JSON file containing primes up to $10^6$ was used for fast lookup.
+    \item \textbf{Large Numbers}: The Miller-Rabin Primality Test was implemented for probabilistic primality testing.
+\end{enumerate}
+
+\subsection{Managing and Extending \texttt{prime.json}}
+The implementation dynamically manages the \texttt{prime.json} file to ensure it contains all necessary primes for factorization or primality testing. Given a number $n$, the following steps are performed:
+
+
+\begin{itemize}
+    \item The function first computes the floor of the square root of $n$, denoted $\lfloor \sqrt{n} \rfloor$.
+    \item It then checks if the largest prime in the \texttt{prime.json} file is greater than or equal to $\lfloor \sqrt{n} \rfloor$.
+    \item If the largest prime in the file is smaller than $\lfloor \sqrt{n} \rfloor$, the list of primes is extended by generating all primes up to this value.
+    \item Finally, the function returns all primes from 2 up to $\lfloor \sqrt{n} \rfloor$, either from the existing list or the newly extended list.
+\end{itemize}
+
+This dynamic approach ensures that we only generate the required primes and avoid recalculating or reloading primes unnecessarily.
+
+\begin{center}
+    \textbf{Code for Managing and Extending \texttt{prime.json}} 
+\end{center}
+
+
+\begin{lstlisting}[language=Python]
+def generate_primes(limit):
+    """Generate primes up to a given limit using the Sieve of Eratosthenes."""
+    sieve = [True] * (limit + 1)
+    sieve[0] = sieve[1] = False  # 0 and 1 are not prime
+    for i in range(2, int(limit**0.5) + 1):
+        if sieve[i]:
+            for multiple in range(i * i, limit + 1, i):
+                sieve[multiple] = False
+    return [x for x, is_prime in enumerate(sieve) if is_prime]
+
+def get_primes_up_to_sqrt(n):
+    """Ensure prime.json contains all primes up to floor(sqrt(n)) and return the list of primes up to floor(sqrt(n))."""
+    sqrt_n = math.floor(math.sqrt(n))
+    
+    try:
+        with open("prime.json", "r") as file:
+            primes = json.load(file)
+    except FileNotFoundError:
+        primes = generate_primes(2)
+        with open("prime.json", "w") as file:
+            json.dump(primes, file)
+\end{lstlisting}
+
+\clearpage
+
+\begin{lstlisting}[language=Python]
+    if primes[-1] < sqrt_n:
+        new_primes = generate_primes(sqrt_n)
+        primes = sorted(set(primes + new_primes))
+        with open("prime.json", "w") as file:
+            json.dump(primes, file)
+
+    return [p for p in primes if p <= sqrt_n]
+\end{lstlisting}
+
+\paragraph{Example}
+\textbf{Input}: $n = 20000$  
+\begin{itemize}
+    \item Compute $\lfloor \sqrt{20000} \rfloor = 141$.
+    \item Check if the largest prime in \texttt{prime.json} is $\geq 141$. If not, extend the file.
+    \item Return primes up to 141.
+\end{itemize}  
+\textbf{Output}: A list of primes up to 141 (e.g., $[2, 3, 5, \ldots, 139]$).
+
+\subsubsection{Why This is Important}
+This method ensures that factorization and primality testing can seamlessly handle numbers of any size without manual intervention. The automatic extension of \texttt{prime.json} eliminates the need for regenerating primes repeatedly, making the process efficient and scalable.
+
+\subsection{Miller-Rabin Primality Test}
+
+    The \textbf{Miller-Rabin Primality Test} is a probabilistic algorithm used to determine whether a number is prime. It is based on properties of modular arithmetic and builds upon \textbf{Fermat’s Little Theorem}, which states that for a prime number p and any integer a, 
+    \begin{center}
+    $a^{p-1} \equiv 1 \pmod{p}$
+    \end{center}
+
+\subsubsection{How It Works}
+   The algorithm works by checking if a number n satisfies properties that are true for prime numbers. The steps involved are:
+
+\begin{enumerate}
+    \item \textbf{Write $n-1$ as $2^s \cdot d$:} Decompose n-1 into a product of an odd integer d and a power of 2 (s).
+    \item \textbf{Choose random bases a:} Random integers a are selected in the range $2 \leq a \leq n-2$.
+    \item \textbf{Check modular properties:} Compute $x = a^d \mod n$. \\ If $x \equiv 1 \pmod{n} or x \equiv -1 \pmod{n}$, the test passes for this round.
+    \item \textbf{Iterative squaring:} If x is neither 1 nor n-1, repeatedly square x up to s-1 times. If $x \equiv n-1$ during any iteration, the test passes for this round.
+    \item \textbf{Repeat the test:} The process is repeated for multiple values of a. The more rounds performed, the higher the confidence in the result.
+\end{enumerate}
+
+\subsubsection{Why It Works}
+
+    The Miller-Rabin Primality Test is probabilistic because it relies on modular arithmetic properties true for prime numbers but not necessarily for composite numbers. The test selects random bases $a$ and checks whether $a^{n-1} \equiv 1 \pmod{n}$. For prime numbers, this holds for all $a$, while for composites, there is at least one $a$ where this fails.
+
+    If $n$ is composite, a base $a$ is a \textit{witness} to its compositeness if it satisfies one of the following conditions: 
+\begin{itemize}
+    \item $a^d \equiv 1 \pmod{n}$, where $a$ is the odd part of $n-1$,
+    \item $a^{2^r d} \equiv -1 \pmod{n}$ for some $0 \leq r \leq s-1$, where $n-1 = 2^s \cdot d$.
+\end{itemize}
+
+    If $n$ is composite, the probability that $a$ is not a witness to compositeness is denoted as $P_{\text{false positive}}(a)$. The chance of a composite number passing the test in a single round is at most $\frac{1}{4}$. 
+
+    Since the test is repeated for $k$ rounds with independent random bases, the probability of passing all rounds is:
+\[
+P_{\text{false positive}} = 4^{-k}
+\]
+Thus, after $k$ rounds, the probability of a false positive decreases exponentially. After 5 rounds, the probability is $\leq 1/1024$.
+
+    This exponential error reduction makes the Miller-Rabin test reliable for large numbers, especially with a large $k$. It runs in $O(k \log^3 n)$ time, due to the efficient modular exponentiation using methods like \textbf{exponentiation by squaring}, making it suitable for cryptographic applications like RSA key generation and digital signatures.
+
+\begin{center}
+    \textbf{Miller-Rabin Primality Test Code}
+\end{center}
+
+\begin{lstlisting}[language=Python]
+def miller_rabin(n, k=5):
+    if n <= 1:
+        return False
+    if n <= 3:
+        return True
+    if n % 2 == 0:
+        return False
+
+    s, d = 0, n - 1
+    while d % 2 == 0:
+        s += 1
+        d //= 2
+
+    for _ in range(k):
+        a = random.randint(2, n - 2)
+        x = pow(a, d, n)
+        if x == 1 or x == n - 1:
+            continue
+        for _ in range(s - 1):
+            x = pow(x, 2, n)
+            if x == n - 1:
+                break
+        else:
+            return False
+    return True
+\end{lstlisting}
+
+
+\clearpage
+\section{Classical Algorithms for Factorization}
+
+Factorization of integers is a cornerstone problem in computational number theory, with critical implications in cryptography. This section presents a comprehensive overview of the classical factorization algorithms implemented during this project. The methods range from basic techniques like Trial Division and Wheel Factorization to advanced strategies such as the General Number Field Sieve (GNFS).  
+
+\subsection{Basic Algorithms}
+Basic algorithms for factorization rely on systematic checking of divisors to identify the factors of a given number $n$. These methods are conceptually simple and provide a foundation for more advanced techniques.  \\
+This section introduces two basic algorithms:
+\begin{enumerate}
+    \item \textbf{Trial Division}, which systematically tests divisibility.
+    \item \textbf{Wheel Factorization}, an optimization of trial division by skipping unnecessary divisors.
+\end{enumerate}  
+
+\subsubsection{Trial Division:}
+\paragraph{Idea Behind the Algorithm}  
+The Trial Division algorithm determines the factors of $n$ by systematically checking divisibility with integers starting from 2 up to $\sqrt{n}$. To improve efficiency, only prime numbers are tested as divisors.  
+
+\paragraph{Algorithm Steps}
+
+\begin{enumerate}
+    \item Initialize a list of primes up to $\lfloor \sqrt{n} \rfloor$.  
+    \item For each prime $p$, check if $n$ is divisible by $p$.  
+    \item If divisible, add $p$ to the list of factors and divide $n$ by $p$ repeatedly until $n$ is no longer divisible.  
+    \item Continue until $p > \lfloor \sqrt{n} \rfloor$.  
+    \item If $n > 1$, $n$ itself is a prime factor.  
+\end{enumerate}
+
+\paragraph{Why It Works}  
+The algorithm is based on the fact that if $n$ is composite, it must have at least one factor $\leq \sqrt{n}$. Testing only prime divisors eliminates unnecessary computations and ensures correctness.
+
+\begin{center}
+    \textbf{Trial Division Implementation}
+\end{center} 
+\begin{lstlisting}[language=Python]
+def trial_division(n):
+    factors = []
+    for p in range(2, int(n**0.5) + 1):
+        while n % p == 0:
+            factors.append(p)
+            n //= p
+    if n > 1:
+        factors.append(n)
+    return factors
+\end{lstlisting}
+
+\paragraph{Example}  
+\textbf{Input}: $n = 100$  
+\textbf{Steps}:  
+\begin{itemize}
+    \item Compute $\lfloor \sqrt{100} \rfloor = 10$. Only divisors up to $10$ need to be tested.  
+    \item Test divisors: $2, 3, 5, 7 \ldots$.  
+    \item $100 \div 2 = 50$, $50 \div 2 = 25$ (add $2, 2$ to factors).  
+    \item Next, $25 \div 5 = 5$, $5 \div 5 = 1$ (add $5, 5$ to factors).  
+\end{itemize}  
+\textbf{Output}: $[2, 2, 5, 5]$  
+
+\subsubsection{Improved Trial Division Algorithm}
+
+The classical Trial Division algorithm is enhanced by incorporating two key improvements:
+\begin{itemize}
+    \item \textbf{Miller-Rabin Primality Test}: A probabilistic primality test that quickly determines if a number is prime, eliminating unnecessary trial division when the number is already prime.
+    \item \textbf{Dynamic Prime List Management}: The prime list is dynamically managed by reading from and writing to a \texttt{prime.json} file. This ensures that the list of primes always contains all primes necessary for factoring numbers up to $\lfloor \sqrt{n} \rfloor$, the largest potential factor for any number $n$.
+\end{itemize}
+
+These techniques improve the efficiency of the Trial Division algorithm, particularly for large numbers.
+
+\begin{center}
+    \textbf{Enhanced Trial Division Algorithm with Miller-Rabin and Dynamic Prime List}
+\end{center}
+
+\begin{lstlisting}[language=Python]
+def trial_division_with_miller_rabin(n):
+    """Enhanced Trial Division with Miller-Rabin test and dynamic prime list."""
+    # Check if the number is prime using Miller-Rabin
+    if miller_rabin_primality_test(n):
+        return [n]
+    
+    primes = get_primes_up_to_sqrt(n)
+    factors = []
+    
+    for p in primes:
+        while n % p == 0:
+            factors.append(p)
+            n //= p
+    
+    if n > 1:
+        factors.append(n)  # n is prime if greater than 1
+    
+    return factors
+\end{lstlisting}
+
+\paragraph{Explanation of the Code}
+
+The enhanced algorithm consists of the following components:
+\begin{enumerate}
+    \item \textbf{Miller-Rabin Primality Test}: If the input number $n$ is identified as prime, the algorithm directly returns $n$ as the sole factor without performing trial division.
+    \item \textbf{Dynamic Prime List Management}: The function \texttt{get\_primes\_up\_to\_sqrt(n)} dynamically retrieves primes. It ensures the \texttt{prime.json} file is updated with all primes up to $\lfloor \sqrt{n} \rfloor$ when needed.
+    \item \textbf{Trial Division}: The algorithm iterates over the prime list to divide $n$ iteratively. If $n$ is still greater than 1 after division, it is added as a prime factor.
+\end{enumerate}
+
+\paragraph{Example}
+
+\textbf{Input}: $n = 200$
+
+\begin{itemize}
+    \item Compute $\lfloor \sqrt{200} \rfloor = 14$.
+    \item Use the Miller-Rabin test to check primality. $200$ is not prime.
+    \item Retrieve primes up to 14 from \texttt{prime.json}: $[2, 3, 5, 7, 11, 13]$.
+    \item Perform trial division: $200 \div 2 = 100$, $100 \div 2 = 50$, $50 \div 2 = 25$, $25 \div 5 = 5$, $5 \div 5 = 1$.
+\end{itemize}
+
+\textbf{Output}: $[2, 2, 2, 5, 5]$
+
+\paragraph{Benefits of the Improved Algorithm}
+
+The enhancements offer the following advantages:
+\begin{itemize}
+    \item \textbf{Efficiency}: The Miller-Rabin test eliminates unnecessary computations by quickly identifying prime numbers.
+    \item \textbf{Scalability}: Dynamic prime list management avoids repeated generation of primes, making the algorithm scalable to larger numbers.
+    \item \textbf{Optimization}: Reusing stored primes minimizes computational redundancy.
+\end{itemize}
+
+\paragraph{Time Complexity Analysis}
+
+\textbf{Classical Trial Division Algorithm}:
+\begin{itemize}
+    \item Iterates through primes up to $\lfloor \sqrt{n} \rfloor$, approximately $O(\frac{\sqrt{n}}{\log n})$ primes.
+    \item Each division operation takes $O(\log n)$ time.
+    \item Total time complexity: $O(\frac{\sqrt{n}}{\log n} \cdot \log n) = O(\sqrt{n})$.
+\end{itemize}
+
+\textbf{Improved Trial Division Algorithm}:
+\begin{itemize}
+    \item Miller-Rabin test: $O(k \cdot \log^3 n)$, where $k$ is the number of rounds.
+    \item Dynamic prime list management (using the Sieve of Eratosthenes): $O(\sqrt{n} \log \log n)$.
+    \item Trial division: $O(\sqrt{n})$.
+    \item Combined time complexity: $O(k \cdot \log^3 n) + O(\sqrt{n} \log \log n)$.
+\end{itemize}
+
+\paragraph{Comparison of Complexities}
+\begin{itemize}
+    \item \textbf{Classical Trial Division}: $O(\sqrt{n})$.
+    \item \textbf{Improved Algorithm}: $O(k \cdot \log^3 n) + O(\sqrt{n} \log \log n)$. The improvements reduce unnecessary computations, making it significantly faster for large $n$.
+\end{itemize}
+
+By integrating the Miller-Rabin Primality Test and dynamic prime list management, the improved algorithm delivers a more efficient and scalable solution for factorization tasks, particularly for large numbers.
+
+---
+
+\subsubsection{Wheel Factorization Algorithm}
+
+The Wheel Factorization algorithm is an optimization of the Trial Division algorithm. It systematically skips over numbers that are divisible by small primes, reducing the number of divisibility tests needed.
+
+\paragraph{Idea Behind the Algorithm}
+
+The Wheel Factorization algorithm improves the Trial Division by using a "wheel" to skip numbers that are divisible by small primes. This concept is based on the observation that the numbers that need to be tested for divisibility are only those that are not divisible by the first few small primes, typically $2, 3, 5, \ldots$. By skipping over multiples of these primes, the algorithm reduces the number of checks, speeding up the factorization process.
+
+\paragraph{Algorithm Steps}
+
+The steps involved in the Wheel Factorization algorithm are as follows:
+
+\begin{enumerate}
+    \item Select two bases $a_1$ and $a_2$ (e.g., $a_1 = 2$ and $a_2 = 3$) to generate the numbers that are candidates for primality checks.
+    \item Generate a prime list using the formula $ \text{gcd}(a_1, a_2) + \text{numbers}$, where numbers are those that don’t belong to the group of $ \text{mod}(\text{gcd}(a_1, a_2))$.
+    \item Begin testing divisibility by primes from the generated list instead of testing all integers up to $\sqrt{n}$.
+    \item Perform divisibility tests only for numbers in the list, thereby skipping over multiples of the selected small primes.
+\end{enumerate}
+
+\paragraph{Why It Works}
+
+The Wheel Factorization works by reducing the number of unnecessary divisibility checks. By skipping over multiples of small primes (e.g., 2, 3, 5, etc.), the algorithm focuses only on numbers that are potentially prime. This reduces the number of checks needed for larger numbers and thus speeds up the factorization process.
+
+The basic idea behind this approach is that if a number $n$ is divisible by a small prime $p$, then $n$ is certainly not prime. The wheel avoids these numbers, testing only those numbers that are not divisible by any small primes.
+\\
+\begin{center}
+    \textbf{Code for Wheel Factorization Algorithm}
+\end{center}
+
+\begin{lstlisting}[language=Python]
+def generate_wheel_primes(base1, base2, limit):
+    wheel_period = math.lcm(base1, base2)
+    wheel_iterations = (limit // wheel_period) + 1
+    non_zero_remainders = []
+    wheel_prime_candidates = [base1, base2]
+    
+    for i in range(1, wheel_period):
+        if gcd(wheel_period, i) == 1:
+            non_zero_remainders.append(i)
+            if i != 1:
+                wheel_prime_candidates.append(i)
+    
+    for i in range(1, wheel_iterations):
+        for remainder in non_zero_remainders:
+            wheel_prime_candidates.append((wheel_period * i) + remainder)
+
+    return wheel_prime_candidates
+\end{lstlisting}
+
+\clearpage
+
+\begin{lstlisting}[language=Python]
+
+def wheel_factorization(n, base1=2, base2=3):
+    """Perform factorization using the Wheel Factorization algorithm with base1 and base2 bases."""
+    # Step 1: Generate wheel primes based on the gcd of base1 and base2
+    wheel_prime_candidates = generate_wheel_primes(base1, base2, int(math.sqrt(n)) + 1)
+    # Step 2: Test divisibility for numbers in the wheel
+    factors = []
+    for prime in wheel_prime_candidates:
+        while n % prime == 0:
+            factors.append(prime)
+            n //= prime
+        if n == 1:
+            break
+
+    return factors
+\end{lstlisting}
+
+\paragraph{Example}
+
+\textbf{Input}: $n = 100$  
+
+\textbf{Steps}:  
+\begin{itemize}
+    \item Select bases $a_1 = 2$ and $a_2 = 3$.
+    \item Then wheel remainder, we getting are $1$ and $5$. Therefore, wheel number are in the form of $6k+1$ and $6k+5$.
+    \item Using this form, wheel primes we get are $2,3,5,7 and 11$.
+    \item Test divisibility for the generated primes.
+    \item Factorization process: $100 \div 2 = 50$, $50 \div 2 = 25$, $25 \div 5 = 5$, $5 \div 5 = 1$.
+    \item Then the factors of $100$ are $2,2,5$ and $5$
+\end{itemize}
+
+
+\paragraph{Time and Computational Complexity}
+
+\paragraph{Time Complexity}
+The time complexity of the Wheel Factorization algorithm depends on:
+\begin{itemize}
+    \item \textbf{Prime Candidate Generation}: $O(\sqrt{n} / \log n)$ for generating candidates up to $\lfloor \sqrt{n} \rfloor$.
+    \item \textbf{Factorization}: $O(\sqrt{n} / \log n)$ due to reduced checks.
+\end{itemize}
+
+\paragraph{Comparison with Trial Division}
+\begin{itemize}
+  \item \textbf{Wheel Factorization}: $O(\sqrt{n} / \log n)$.
+  \item \textbf{Trial Division}: $O(\sqrt{n})$.
+\end{itemize}
+
+The Wheel Factorization algorithm is more efficient as it avoids redundant divisibility checks.
+
+\subsection{Fermat’s Algorithm s}
+\subsubsection{Fermat’s Factorization Method}
+\paragraph{}{Idea Behind the Algorithm}  
+
+Fermat's Factorization Method works on the principle of representing a composite number $n$ as the difference of two squares:
+\[
+n = x^2 - y^2 \implies n = (x + y)(x - y)
+\]
+If $x^2 > n$, then the factorization can be achieved by finding $x$ and $y$ such that $x^2 - n$ is a perfect square.
+
+\paragraph{Algorithm Steps}
+\begin{enumerate}
+    \item Start with $x = \lceil \sqrt{n} \rceil$.
+    \item Compute $y^2 = x^2 - n$.
+    \item Check if $y^2$ is a perfect square. If yes, compute $y = \sqrt{y^2}$ and return the factors:
+\[
+    \text{Factors: } p = x + y, \, q = x - y
+\]
+    \item If $y^2$ is not a perfect square, increment $x$ and repeat.
+\end{enumerate}
+
+\paragraph{Why It Works}
+
+This method is efficient when the two factors of $n$ are close to each other because fewer iterations are required to find $x$ and $y$.
+\begin{center}
+    \textbf{Code for Fermat’s Factorization Method}
+\end{center}
+\begin{lstlisting}[language=Python]
+def is_perfect_square(num):
+    """Check if a number is a perfect square."""
+    sqrt_num = int(math.sqrt(num))
+    return sqrt_num * sqrt_num == num
+
+def fermat_factorization(n):
+    """Fermat's Factorization Method."""
+    x = math.ceil(math.sqrt(n))
+    while True:
+        y2 = x * x - n
+        if is_perfect_square(y2):
+            y = int(math.sqrt(y2))
+            return (x + y, x - y)
+        x += 1
+\end{lstlisting}
+
+\paragraph{Example}
+
+\textbf{Input}: $n = 5959$  
+\textbf{Steps}:
+\begin{itemize}
+    \item Start with $x = \lceil \sqrt{5959} \rceil = 78$.
+    \item Compute $y^2 = x^2 - n = 78^2 - 5959 = 6084 - 5959 = 125$ (not a perfect square).
+    \item Increment $x$: $x = 79$.
+    \item Compute $y^2 = x^2 - n = 79^2 - 5959 = 6241 - 5959 = 282$ (not a perfect square).
+    \item Increment $x$: $x = 80$.
+    \item Compute $y^2 = x^2 - n = 80^2 - 5959 = 6400 - 5959 = 441$ (perfect square).
+    \item Compute $y = \sqrt{441} = 21$.
+    \item Factors: $p = x + y = 80 + 21 = 101$, $q = x - y = 80 - 21 = 59$.
+\end{itemize}  
+\textbf{Output}: $[59, 101]$  
+
+\paragraph{Time and Computational Complexity}
+
+The time complexity depends on the difference between the factors of $n$:
+\begin{itemize}
+    \item Best case: $O(1)$ when the factors are close.
+    \item Worst case: $O(\sqrt{n})$ when factors are far apart.
+\end{itemize}
+
+---
+
+\subsubsection{Improved Fermat's Factorization Method}
+
+\paragraph{Idea Behind the Improvements}
+
+The original Fermat’s Factorization Method is efficient when the factors of $n$ are close to each other. The following improvements make the algorithm more versatile and efficient:
+
+\begin{enumerate}
+    \item \textbf{Handling Even Factors First}:  
+        If $n$ is even, repeatedly divide by 2 and add 2 to the list of factors until $n$ becomes odd. This simplifies further factorization and Also solve the problem if one factor is even and the other is odd, the factors can be represented as:
+\[
+        \text{factor1} = x + y, \quad \text{factor2} = x - y,
+\]
+        where:
+\[
+        x = \frac{\text{factor1} + \text{factor2}}{2}, \quad y = \frac{\text{factor1} - \text{factor2}}{2}.
+\]
+        If one factor is even, let $\text{factor1} = 2k$ and $\text{factor2} = m$, where $k$ and $m$ are integers. Then:
+\[
+        x = \frac{2k + m}{2} = k + \frac{m}{2}.
+\]
+        This means $x$ can only take specific values based on the parity of $\text{factor1}$ and $\text{factor2}$.
+\end{enumerate}
+
+\paragraph{Algorithm Steps}
+
+\begin{enumerate}
+    \item Check if $n$ is even:
+    \begin{itemize}
+        \item While $n$ is divisible by 2, divide it by 2 and add 2 to the factors list.
+    \end{itemize}
+    \item Compute $x = \lceil \sqrt{n} \rceil$.
+    \item Compute $y^2 = x^2 - n$ and check if $y^2$ is a perfect square:
+    \begin{itemize}
+        \item If true, compute $y = \sqrt{y^2}$ and find factors:
+\[
+        \text{factor1} = x + y, \, \text{factor2} = x - y.
+\]
+        \item If $\text{factor1}$ or $\text{factor2}$ is prime (using Miller-Rabin), add it to the factors list.
+        \item If not, recursively factorize.
+    \end{itemize}
+    \item Repeat until $n = 1$ or all factors are prime.
+\end{enumerate}
+
+\begin{center}
+    \item \textbf{Code for Improved Fermat's Factorization Method}
+\end{center}
+
+\begin{lstlisting}[language=Python]
+def improved_fermat_factorization(n):
+    """Improved Fermat's Factorization Method."""
+    if n <= 1:
+        return []
+    factors = []
+
+    # Step 1: Handle even factors
+    while n % 2 == 0:
+        n //= 2
+        factors.append(2)
+\end{lstlisting}
+
+\clearpage
+        
+\begin{lstlisting}[language=Python]
+    # Step 2: Start Fermat's Factorization for odd n
+    while n > 1:
+        if miller_rabin(n):
+            factors.append(n)
+            break
+        
+        x = math.ceil(math.sqrt(n))
+        while True:
+            y2 = x * x - n
+            if y2 >= 0 and is_perfect_square(y2):
+                y = int(math.sqrt(y2))
+                factor1, factor2 = x + y, x - y
+                if factor1 > 1:
+                    factors += improved_fermat_factorization(factor1)
+                if factor2 > 1:
+                    factors += improved_fermat_factorization(factor2)
+                n = 1
+                break
+            x += 1
+
+    return factors
+\end{lstlisting}
+
+\paragraph{Example}
+
+\textbf{Input}: $n = 126$  
+
+\textbf{Steps}:  
+\begin{itemize}
+    \item Remove even factors:
+\[
+    126 \div 2 = 63, \quad \text{factors} = [2]
+\]
+    \item Compute $x = \lceil \sqrt{63} \rceil = 8$.
+    \item Compute $y^2 = 8^2 - 63 = 64 - 63 = 1$ (perfect square).
+    \item Compute $y = \sqrt{1} = 1$, so:
+\[
+    \text{factor1} = 8 + 1 = 9, \, \text{factor2} = 8 - 1 = 7.
+\]
+    \item Factorize further:
+\[
+    9 = 3 \times 3, \quad \text{factors} = [2, 3, 3, 7].
+\]
+\end{itemize}
+
+\textbf{Output}: $[2, 3, 3, 7]$  
+
+\paragraph{Time and Computational Complexity}
+
+\paragraph{Time Complexity:}  
+\begin{itemize}
+    \item \textbf{Best case:} $O(1)$, when $n$ is even or quickly factorized.
+    \item \textbf{Worst case:} $O(\sqrt{n})$, for numbers with no nearby factors.
+\end{itemize}
+
+\paragraph{Space Complexity:}  
+$O(\log n)$ for recursive calls during complete factorization.
+
+\subsubsection{Generalized Fermat’s Factorization Method}
+
+\paragraph{Idea Behind the Algorithm}  
+
+The Generalized Fermat’s Factorization Method is an extension of Fermat’s Factorization Method. Instead of representing $n$ as $x^2 - y^2$, it represents $n$ as:
+\[
+n = a^2 - b^2 \cdot k
+\]
+where $k$ is a nonzero integer that adjusts the difference of squares to improve factorization in cases where Fermat's method might fail. In this implementation, $k$ can either be user-defined or randomly chosen in the range $[0, n-1]$ to explore different possibilities.
+
+\paragraph{Algorithm Steps}
+\begin{enumerate}
+    \item Choose a value for $k$:
+    \begin{itemize}
+        \item If $k = 0$, a random integer in $[0, n-1]$ is selected.
+        \item If $k \neq 0$, use the provided value of $k$.
+    \end{itemize}
+    \item Compute $a = \lceil \sqrt{n + k} \rceil$.
+    \item Compute $b^2 = a^2 - n$.
+    \item Check if $b^2$ is a perfect square:
+    \begin{itemize}
+        \item If true, compute $b = \sqrt{b^2}$, then calculate the factors:
+\[
+        p = \gcd(a + b, n), \, q = \gcd(a - b, n)
+\]
+        \item If false, increment $a$ and repeat.
+    \end{itemize}
+\end{enumerate}
+
+\begin{center}
+    \item \textbf{Code for Generalized Fermat’s Factorization Method}
+\end{center}
+
+\begin{lstlisting}[language=Python]
+def generalized_fermat_factorization(n, k=2):
+    """Generalized Fermat's Factorization Method."""
+    if k == 0:
+        k = random.randint(0, n - 1)
+    a = math.ceil(math.sqrt(n + k))
+    while True:
+        b2 = a * a - n
+        if is_perfect_square(b2):
+            b = int(math.sqrt(b2))
+            p = math.gcd(a + b, n)
+            q = math.gcd(a - b, n)
+            return (p, q)
+        a += 1
+\end{lstlisting}
+
+\paragraph{Example}
+
+\textbf{Input}: $n = 5913$, $k = 4$  
+
+\textbf{Steps}:  
+\begin{itemize}
+    \item Compute $a = \lceil \sqrt{5913 + 4} \rceil = \lceil \sqrt{5917} \rceil = 77$.
+    \item Compute $b^2 = a^2 - n = 77^2 - 5913 = 5929 - 5913 = 16$ (perfect square).
+    \item Compute $b = \sqrt{16} = 4$.
+    \item Calculate factors:
+\[
+    p = \gcd(a + b, n) = \gcd(77 + 4, 5913) = \gcd(81, 5913) = 27
+\]
+\[
+    q = \gcd(a - b, n) = \gcd(77 - 4, 5913) = \gcd(73, 5913) = 73
+\]
+\end{itemize}
+
+\textbf{Output}: $[27, 73]$  
+
+\paragraph{Key Notes}
+\begin{itemize}
+    \item If $k$ is not specified or is set to $0$, the algorithm randomly selects $k \in [0, n-1]$.
+    \item Randomizing $k$ allows the algorithm to explore different potential factorizations, increasing the likelihood of success for numbers where a specific $k$ might fail.
+    \item The user can also specify $k$ for deterministic behavior, as shown in the example.
+\end{itemize}
+
+\paragraph{Time and Computational Complexity}
+
+\paragraph{Time Complexity:}  
+The time complexity depends on the value of $k$:
+\begin{itemize}
+    \item Best case: $O(1)$, if a perfect square is found immediately.
+    \item Average case: $O(\sqrt{n})$, as the algorithm iterates through values of $a$ until a valid $b^2$ is found.
+\end{itemize}
+
+\paragraph{Comparison with Fermat's Method:}  
+The introduction of $k$ allows the algorithm to work efficiently even when $n$ does not have factors near $\sqrt{n}$, making it more versatile than the classical Fermat’s Factorization Method.
+
+\subsubsection{Improved Generalized Fermat Factorization Method Complete Factorization}
+
+\paragraph{Idea Behind The Algorithm}
+
+The Generalized Fermat Factorization Method extends the classic Fermat's method by introducing a shift parameter $k$, which enables it to handle a broader range of numbers. The key enhancements include:
+
+\begin{enumerate}
+    \item \textbf{Randomized Selection of $k$:}
+    If $k$ is not specified, it is randomly generated in the range $1 \leq k < n$. This improves the method's adaptability to different inputs.
+    \item \textbf{Recursive Complete Factorization:}  
+    Once factors are identified, the method recursively factorizes them until all factors are prime.
+    \item \textbf{Miller-Rabin Primality Test:}  
+    Before recursive factorization, the primality of the factors is checked to avoid redundant computation.
+\end{enumerate}
+
+\paragraph{Algorithm Steps}
+
+\begin{enumerate}
+    \item Check if $n$ is even:
+    \begin{itemize}
+        \item While $n$ is divisible by 2, divide it by 2 and add 2 to the factors list.
+    \end{itemize}
+    \item Generate a value for $k$ (either specified or random).
+    \item Compute $a = \lceil \sqrt{n + k} \rceil$.
+    \item Compute $b^2 = a^2 - n$ and check if $b^2$ is a perfect square:
+    \begin{itemize}
+        \item If true, compute $b = \sqrt{b^2}$ and find factors:
+\[
+        \text{factor1} = \gcd(a + b, n), \, \text{factor2} = \gcd(a - b, n).
+\]
+        \item If the factors are composite, recursively apply the algorithm to them.
+        \item If the factors are prime (verified by the Miller-Rabin Primality Test), add them to the factors list.
+    \end{itemize}
+    \item Repeat until $n = 1$ or all factors are prime.
+\end{enumerate}
+
+\begin{center}
+    \item \textbf{Code for Improved Generalized Fermat Factorization}
+\end{center}
+
+\begin{lstlisting}[language=Python]
+def Improved_Generalised_Fermat(n, k=None):
+    factors = []
+    
+    while n % 2 == 0:
+        n //= 2
+        factors.append(2)
+\end{lstlisting}
+
+\clearpage
+
+\begin{lstlisting}[language=Python]
+    if n > 1 and miller_rabin(n):
+        factors.append(n)
+        return factors
+    while n > 1:
+        if k is None:
+            k = random.randint(1, n - 1)
+        a = math.ceil(math.sqrt(n + k))
+        while True:
+            b2 = a * a - n
+            if is_perfect_square(b2):
+                b = int(math.sqrt(b2))
+                factor1 = math.gcd(a + b, n)
+                factor2 = math.gcd(a - b, n)
+                if miller_rabin(factor1):
+                    factors.append(factor1)
+                else:
+                    factors += Improved_Generalised_Fermat(factor1)
+                if miller_rabin(factor2):
+                    factors.append(factor2)
+                else:
+                    factors += Improved_Generalised_Fermat(factor2)
+                break
+            a += 1
+        n //= factor1 * factor2
+    return factors
+\end{lstlisting}
+
+\paragraph{Example}
+
+\textbf{Input}: $n = 5913$, $k = 4$
+
+\textbf{Steps}:
+\begin{itemize}
+    \item Compute $a = \lceil \sqrt{5913 + 4} \rceil = \lceil \sqrt{5917} \rceil = 77$.
+    \item Compute $b^2 = 77^2 - 5913 = 5929 - 5913 = 16$ (a perfect square).
+    \item Compute $b = \sqrt{16} = 4$, and factors:
+\[
+    \text{factor1} = \gcd(77 + 4, 5913) = \gcd(81, 5913) = 81,
+\]
+\[
+    \text{factor2} = \gcd(77 - 4, 5913) = \gcd(73, 5913) = 73.
+\]
+    \item Recursively factorize $81$:
+\[
+    81 = 3 \times 3 \times 3 \times 3.
+\]
+    \item Factor $73$ is prime.
+\end{itemize}
+
+\textbf{Output}: $5913 = 3^4 \times 73$.
+
+\paragraph{Time and Computational Complexity}
+
+\paragraph{Time Complexity:}
+\begin{itemize}
+    \item \textbf{Best Case:} $O(\sqrt{n})$ for small $k$ and quickly factorable numbers.
+    \item \textbf{Worst Case:} $O(\sqrt{n} \cdot \text{log}(n))$ with iterative calls to gcd and primality tests.
+\end{itemize}
+
+\paragraph{Space Complexity:}
+\begin{itemize}
+    \item $O(\log n)$ for recursive calls during complete factorization.
+\end{itemize}
+
+
+\subsection{Continued Fraction Algorithm for Integer Factorization}
+
+\paragraph{Idea Behind The Algorithm}
+
+The Continued Fraction Algorithm (CFA) is a method of integer factorization based on the properties of continued fractions and quadratic forms. It builds on the idea of finding a relation between the square of integers modulo $n$ that helps factorize $n$. Specifically, it leverages the representation of $\sqrt{n}$ as a continued fraction to identify congruences of squares.
+
+\paragraph{Algorithm Steps}
+
+\begin{enumerate}
+    \item Compute $\lfloor \sqrt{n} \rfloor$ and initialize the continued fraction representation of $\sqrt{n}$.
+    \item Generate successive convergents of the continued fraction:
+\[
+    \frac{p_k}{q_k} \quad \text{for } k = 1, 2, 3, \ldots
+\]
+    \item For each convergent, compute $p_k^2 \mod n$:
+\[
+    p_k^2 \equiv q_k^2 \mod n
+\]
+    \item Check if $(p_k^2 - q_k^2) \mod n = 0$. If true, compute:
+\[
+    \text{factor1} = \gcd(p_k - q_k, n), \quad \text{factor2} = \gcd(p_k + q_k, n).
+\]
+    \item If factors are composite, recursively factorize them or use a primality test to determine if they are prime.
+    \item Repeat until $n$ is completely factorized.
+\end{enumerate}
+
+\paragraph{Why It Works}
+
+The Continued Fraction Algorithm relies on properties of quadratic forms and the relationship between convergents of a continued fraction and modular arithmetic. The key insight is that if a continued fraction convergent $\frac{p_k}{q_k}$ of $\sqrt{n}$ satisfies:
+
+\[
+p_k^2 \equiv q_k^2 \mod n,
+\]
+
+then $(p_k^2 - q_k^2) \mod n = 0$, which implies:
+
+\[
+(p_k - q_k)(p_k + q_k) \equiv 0 \mod n.
+\]
+
+This equation reveals a potential factorization of $n$ if $\gcd(p_k - q_k, n)$ or $\gcd(p_k + q_k, n)$ produces nontrivial factors. 
+
+The algorithm works because continued fraction convergents are excellent approximations of $\sqrt{n}$. These approximations systematically yield values of $p_k$ and $q_k$ that are highly likely to satisfy the above congruence for composite $n$. This makes it a deterministic method for factorization once a valid convergent is identified.
+
+Additionally, the representation of $\sqrt{n}$ as a periodic continued fraction ensures that the algorithm explores all possible congruences efficiently, increasing the likelihood of identifying factors.
+
+
+\begin{center}
+    \item \textbf{Code for Continued Fraction Algorithm}
+\end{center}
+
+\begin{lstlisting}[language=Python]
+def continued_fraction_factorization(n):
+    """Continued Fraction Algorithm for Integer Factorization."""
+    if n <= 1:
+        return []
+
+    factors = []
+
+    # Step 1: Handle even factors
+    while n % 2 == 0:
+        factors.append(2)
+        n //= 2
+
+    if n > 1 and miller_rabin(n):
+        factors.append(n)
+        return factors
+
+    # Step 2: Initialize continued fraction representation
+    m = 0
+    d = 1
+    a0 = math.floor(math.sqrt(n))
+    a = a0
+    if a * a == n:
+        factors.append(a)
+        return factors + continued_fraction_factorization(n // a)
+
+    # Initialize convergents
+    p_prev, p_curr = 1, a
+    q_prev, q_curr = 0, 1
+\end{lstlisting}  
+
+\clearpage
+
+\begin{lstlisting}[language=Python]
+    # Step 3: Begin continued fraction factorization
+    for _ in range(1000):
+        m = d * a - m
+        d = (n - m * m) // d
+        a = (a0 + m) // d
+
+        # Compute the next convergent
+        p_next = a * p_curr + p_prev
+        q_next = a * q_curr + q_prev
+
+        # Update previous values
+        p_prev, p_curr = p_curr, p_next
+        q_prev, q_curr = q_curr, q_next
+
+        # Check for factorization
+        factor1 = gcd(p_curr - q_curr, n)
+        factor2 = gcd(p_curr + q_curr, n)
+
+\end{lstlisting}  
+
+\clearpage
+
+\begin{lstlisting}[language=Python]
+
+        if 1 < factor1 < n:
+            if miller_rabin(factor1):
+                factors.append(factor1)
+            else:
+                factors += continued_fraction_factorization(factor1)
+            n //= factor1
+            if n > 1:
+                factors += continued_fraction_factorization(n)
+            break
+
+        if 1 < factor2 < n:
+            if miller_rabin(factor2):
+                factors.append(factor2)
+            else:
+                factors += continued_fraction_factorization(factor2)
+            n //= factor2
+            if n > 1:
+                factors += continued_fraction_factorization(n)
+            break
+
+    if n > 1:
+        factors.append(n)
+
+    return factors
+\end{lstlisting}
+
+\paragraph{Example}
+
+\textbf{Input}: $n = 8051$
+
+\textbf{Steps}:
+\begin{itemize}
+    \item Compute $\lfloor \sqrt{8051} \rfloor = 89$.
+    \item Generate the continued fraction for $\sqrt{8051}$ and compute convergents:
+\[
+    \frac{p_1}{q_1} = \frac{89}{1}, \quad \frac{p_2}{q_2} = \frac{178}{2}, \quad \frac{p_3}{q_3} = \ldots
+\]
+    \item For $p_3 = 267, q_3 = 3$:
+\[
+    p_3^2 - q_3^2 \mod n = 0 \quad \implies \quad (267 - 3)(267 + 3) = 3 \times 268.
+\]
+    \item Compute $\gcd(267 - 3, 8051) = 13$, and the remaining factor is $8051 / 13 = 619$.
+    \item Recursively factorize 619 using the same method:
+\[
+    619 = 13 \times 47 \, (\text{both primes}).
+\]
+\end{itemize}
+
+\textbf{Output}: $8051 = 13 \times 13 \times 47$.
+
+\paragraph{Time and Computational Complexity}
+
+\paragraph{Time Complexity:}
+\begin{itemize}
+    \item \textbf{Best Case:} $O(\sqrt{n})$ for quickly reducible numbers.
+    \item \textbf{Worst Case:} $O(n^{1/4})$ for numbers requiring long continued fraction chains.
+\end{itemize}
+
+\paragraph{Space Complexity:}
+\begin{itemize}
+    \item $O(\log n)$ for storing convergents.
+\end{itemize}
+  
+
+\subsection{Pollard's Rho Algorithm}
+
+\subsubsection{Pollard's Rho Algorithm}
+\paragraph{Idea Behind the Algorithm}
+
+Pollard's Rho Algorithm is a probabilistic factorization method that exploits the properties of modular arithmetic and pseudo-random sequences. The algorithm is based on the principle of detecting a non-trivial divisor of a composite number $n$ using the Floyd cycle detection method. By iterating a polynomial function $f(x)$ modulo $n$, the algorithm generates a sequence of numbers. If two numbers in the sequence share a common factor with $n$, the $\gcd$ function can reveal a factor.
+
+The algorithm is efficient for finding small factors of $n$ and is particularly effective for numbers with multiple small prime factors.
+
+\paragraph{Algorithm Steps}
+
+\begin{enumerate}
+    \item \textbf{Initialization}: Choose a polynomial $f(x) = x^2 + 1 \mod n$ with a random starting value $x_0$ and a constant $c = 1$.
+    \item \textbf{Generate Sequence}: Compute the pseudo-random sequence $x_{i+1} = f(x_i) \mod n$.
+    \item \textbf{Cycle Detection}: Use Floyd's cycle detection method to find two sequence values $x_i$ and $x_j$ such that $\gcd(|x_i - x_j|, n)$ produces a non-trivial factor.
+    \item \textbf{Output}: If a factor is found, return it along with its complementary factor. Otherwise, change the initial values and repeat.
+\end{enumerate}
+
+\paragraph{Why It Works}
+
+Pollard's Rho Algorithm works because of the \textbf{Pigeonhole Principle} and the periodicity of modular arithmetic. The sequence $x_i$ generated by $f(x)$ modulo $n$ must eventually repeat due to the finite residue set $\{0, 1, \ldots, n-1\}$. The periodicity creates a cycle, and differences between sequence values within the cycle may reveal factors of $n$ when their greatest common divisor with $n$ is computed.
+
+The effectiveness of the algorithm depends on the choice of $f(x)$ and the starting values, which affect how quickly a cycle is detected. Adding randomness improves the chances of finding a factor.
+\begin{center}
+    \item \textbf{Code for Pollard's Rho Algorithm}
+\end{center}
+
+\begin{lstlisting}[language=Python]
+def pollards_rho(n, k=1):
+    """Pollard's Rho Algorithm for integer factorization."""
+    if k == -1:  # Randomize if k is -1
+        k = random.randint(1, n-1)
+
+    if n % 2 == 0:
+        return 2, n // 2
+\end{lstlisting}
+
+\begin{lstlisting}[language=Python]
+    # Define the polynomial function
+    def f(x):
+        return (x**2 + k) % n
+
+    x, y, d = random.randint(1, n-1), random.randint(1, n-1), 1
+    while d == 1:
+        x = f(x)
+        y = f(f(y))
+        d = math.gcd(abs(x - y), n)
+        if d == n:
+            return pollards_rho(n, k=random.randint(1, n-1))  # Retry with new parameters
+    factor2 = n // d
+    return d, factor2
+\end{lstlisting}
+
+\paragraph{Example}
+
+\textbf{Input}: $n = 8051$ 
+\textbf{Steps}:
+\begin{itemize}
+    \item Start with $f(x) = x^2 + 1 \mod 8051$, $x_0 = 2$, $k = 1$.
+    \item Generate sequence: $x_1 = 5, x_2 = 26, x_3 = 677, \ldots$.
+    \item Use Floyd's cycle detection: Compute $\gcd(|x_i - x_j|, 8051)$. 
+    \item Detect a factor: $\gcd(|677 - 5|, 8051) = 97$.
+\end{itemize}
+
+\textbf{Output}: The factors of $8051$ are $97$ and $83$ ($8051 / 97 = 83$).
+
+\paragraph{Time and Computational Complexity}
+
+\begin{itemize}
+    \item \textbf{Time Complexity}: $O(\sqrt{p})$, where $p$ is the smallest prime factor of $n$. The performance depends on finding a collision in the sequence modulo $p$.
+    \item \textbf{Space Complexity}: $O(1)$, as the algorithm uses only a few variables to maintain the sequence and compute the gcd.
+\end{itemize}
+
+\subsubsection{Improved Pollard's Rho Algorithm}
+
+The improvements to the Pollard's Rho Algorithm include:
+\begin{itemize}
+    \item \textbf{Primality Test Integration}: The Miller-Rabin Primality Test is used to check if the factors are prime.
+    \item \textbf{Recursive Factorization}: Once a non-trivial factor is found, it is recursively factorized until the complete prime factorization of the number is obtained.
+    \item \textbf{Handling Edge Cases}: If the algorithm fails to find a factor (when $\gcd$ equals $n$), it retries with new parameters.
+\end{itemize}
+
+\begin{center}
+    \item \textbf{Code for Improved Pollard's Rho Algorithm}
+\end{center}
+
+\begin{lstlisting}[language=Python]
+def pollards_rho_improved(n, k=1):
+    """Improved Pollard's Rho Algorithm with recursive factorization."""
+
+    if k == -1:  # Randomize if k is -1
+        k = random.randint(1, n-1)
+    
+    if n <= 1:
+        return []
+    if miller_rabin(n):  # Use predefined Miller-Rabin Test
+        return [n]
+
+    # Define the polynomial function
+    def f(x):
+        return (x**2 + k) % n
+
+    x, y, d = random.randint(1, n - 1), random.randint(1, n - 1), 1
+    while d == 1:
+        x = f(x)
+        y = f(f(y))
+        d = math.gcd(abs(x - y), n)
+        if d == n:
+            # Retry with different parameters
+            return pollards_rho_improved(n)
+\end{lstlisting}
+
+\clearpage
+
+\begin{lstlisting}[language=Python]
+    # Recursive factorization for complete prime factorization
+    factors = pollards_rho_improved(d) + pollards_rho_improved(n // d)
+    return sorted(factors)
+\end{lstlisting}
+
+\paragraph{Code Explanation}
+\begin{itemize}
+    \item The \texttt{miller\_rabin} function is used to verify the primality of factors found during the factorization process.
+    \item The polynomial function $f(x) = x^2 + 1 \mod n$ generates pseudo-random sequences, and the $\gcd$ of sequence values detects non-trivial factors of $n$.
+    \item Factors are recursively factorized until the complete prime factorization of $n$ is achieved.
+    \item If no factor is found, the algorithm retries with new random initial values.
+\end{itemize}
+
+\paragraph{Example}
+
+\textbf{Input}: $n = 8051$  
+\textbf{Steps}:
+\begin{itemize}
+    \item Use the polynomial function $f(x) = x^2 + 1 \mod 8051$, starting with random $x_0$ and $y_0$ values.
+    \item Compute $\gcd(|x_i - x_j|, n)$ to detect a factor. In this case, $\gcd(677 - 5, 8051) = 97$.
+    \item Verify $97$ as prime using the Miller-Rabin Primality Test.
+    \item Compute $n / 97 = 83$ and verify $83$ as prime.
+    \item The factors of $8051$ are $[83, 97]$.
+\end{itemize}
+
+\textbf{Output}: $[83, 97]$
+
+\paragraph{Time and Computational Complexity}
+\begin{itemize}
+    \item \textbf{Time Complexity}: $O(k \cdot \sqrt{p})$, where $p$ is the smallest prime factor of $n$, and $k$ is the number of Miller-Rabin test iterations.
+    \item \textbf{Space Complexity}: $O(1)$, as the algorithm uses only a few variables to manage the sequence and gcd computations.
+\end{itemize}
+
+
+\subsection{Quadratic Sieve (QS)}
+
+The Quadratic Sieve (QS) is a number factorization algorithm that is particularly efficient for factoring large composite numbers, especially those with 100–200 digits. The algorithm works by finding smooth numbers (numbers whose prime factors are all smaller than a certain bound) and using these smooth numbers to construct a system of linear equations. Solving these equations then reveals a non-trivial factor of the number being factored.
+
+The implementation of this algorithm incorporates various number-theoretic techniques such as Rabin-Miller primality test, Pollard’s Rho, Brent’s variant of Pollard’s Rho, trial division, and others to identify small prime factors. These small prime factors are subsequently used in the Quadratic Sieve for finding larger factors.
+
+\paragraph{Algorithm Description}
+The Quadratic Sieve follows a series of steps:
+\begin{itemize}
+    \item \textbf{Primality Testing:} The Rabin-Miller primality test is employed to check whether a number is prime.
+    \item \textbf{Trial Division:} Small prime factors are found using trial division.
+    \item \textbf{Perfect Power Check:} If the number is a perfect power, the factorization process is halted early.
+    \item \textbf{Pollard's Rho Algorithm:} If small factors are not found, Pollard's Rho algorithm is used to attempt to find factors.
+    \item \textbf{Main Factorization:} The core factorization process involves combining the methods above to eventually find the prime factors.
+\end{itemize}
+
+\paragraph{Algorithm Steps}
+
+\begin{enumerate}
+    \item \textbf{Initialization:} The algorithm starts by initializing an array of primes up to a certain bound.
+    \item \textbf{Smooth Number Search:} The algorithm searches for smooth numbers by evaluating quadratic forms.
+    \item \textbf{Factorization using Linear Algebra:} The smooth numbers found are then used to create a system of linear equations modulo 2. Solving these equations identifies a factor of the number.
+    \item \textbf{Solution:} The resulting linear combination provides a factor, which is used to divide the original number.
+\end{enumerate}
+
+\paragraph{GitHub Repository}
+\begin{center}
+    \url{https://github.com/NachiketUN/Quadratic-Sieve-Algorithm}
+\end{center}
+
+\paragraph{Code Explanation}
+
+\begin{itemize}
+
+    \item \textbf{\textit{is\_probable\_prime(a)}}: \\
+    This function checks whether a number $a$ is prime using the Rabin-Miller primality test. It first performs basic checks (such as checking if $a$ is 2 or even), and if these fail, it proceeds with the Rabin-Miller test for probabilistic primality.
+    
+    \item \textbf{\textit{rabin\_miller\_primality\_test(a, iterations)}}: \\
+    This function implements the Rabin-Miller primality test. It performs modular exponentiation and checks randomly chosen bases to verify the primality of $a$. The test is repeated for a set number of iterations to increase accuracy.
+
+    \item \textbf{\textit{check\_perfect\_power(n)}}: \\
+    This function checks whether the number $n$ is a perfect power, i.e., if $n = r^b$ for some integers $r$ and $b$. If $n$ is a perfect power, the function returns the pair $(r, b)$; otherwise, it returns None.
+
+    \item \textbf{\textit{check\_factor(n, i, factors)}}:\\ 
+    This function checks if $i$ is a factor of $n$ by trial division. It divides $n$ by $i$ until no further division is possible, adding $i$ to the list of factors each time.
+
+    \item \textbf{\textit{find\_small\_primes(n, upper\_bound)}}: \\
+    This function finds small primes up to a given upper bound and uses them to attempt to factor $n$. It performs trial division using these primes to find any small prime factors of $n$.
+
+    \item \textbf{\textit{brent\_factorise(n, iterations=None)}}: \\
+    This function implements Brent's variant of Pollard’s Rho algorithm. It attempts to find a non-trivial factor of $n$ by iterating through random values and applying a specific transformation. If a factor is found, it is returned.
+
+    \item \textbf{\textit{pollard\_brent\_iterator(n, factors)}}: \\
+    This function serves as an iterator for Brent's Pollard Rho algorithm, repeatedly attempting to find small prime factors of $n$ and adding them to the list of factors.
+
+    \item \textbf{\textit{factorise(n)}}: \\
+    This is the main function for factorizing $n$. It first attempts trial division, then checks for perfect powers, and if no small factors are found, it applies Pollard’s Rho algorithm. The function recursively finds factors until all prime factors of $n$ are discovered.
+
+    \item \textbf{\textit{main()}}: \\
+    This function serves as the entry point for the program. It accepts an integer $n$ as input, calls the factorization function, and prints the resulting prime factors.
+
+\end{itemize}
+
+
+\paragraph{Improvement}
+
+\begin{itemize}
+    \item \textbf{Integration with Quadratic Sieve:} The algorithm can be extended to use the Self-Initializing Quadratic Sieve (SIQS), which collects smooth numbers and solves a system of linear equations to identify non-trivial factors.
+    \item \textbf{Optimization:} 
+    \begin{itemize}
+        \item \textbf{Multithreading:} Parallel processing can be used to speed up tasks such as trial division and Pollard’s Rho factorization.
+        \item \textbf{Better Primality Testing:} The Miller-Rabin test can be optimized by increasing the number of iterations for more accurate results when testing large numbers.
+    \end{itemize}
+    \item \textbf{Testing with Large Inputs:} For very large numbers (e.g., hundreds of digits), the General Number Field Sieve (GNFS) could be integrated for better performance in large-scale factorizations.
+\end{itemize}
+
+\paragraph{Conclusion}
+
+This Python implementation provides an efficient approach to integer factorization using several advanced techniques such as the Rabin-Miller primality test, Pollard’s Rho, and trial division. It can be further enhanced with the integration of the Self-Initializing Quadratic Sieve for large numbers and parallel processing for faster execution. The code demonstrates the power of combining multiple number-theoretic methods to solve the complex problem of integer factorization efficiently.
+
+\subsection{General Number Field Sieve (GNFS)}
+The General Number Field Sieve (GNFS) is one of the most advanced algorithms used for factoring large composite numbers. It is particularly efficient for numbers with hundreds of digits and is considered the most effective classical algorithm for integer factorization for such large numbers. The GNFS works by finding relations between certain number fields and solving systems of linear equations over finite fields. 
+
+The GNFS is based on algebraic number theory and involves several key phases: polynomial selection, sieving, matrix solving, and square root extraction. This process involves finding smooth numbers (numbers whose prime factors are all smaller than a certain bound) and using these to solve a system of linear equations, which ultimately reveals factors of the target number.
+
+\paragraph{Algorithm Description}
+The GNFS works in the following sequence of steps:
+\begin{itemize}
+    \item \textbf{Polynomial Selection:} A polynomial is chosen that has small integer coefficients and whose roots can be found modulo the number to be factored. This polynomial will be used in the sieving step.
+    \item \textbf{Sieving:} A large number of values are tested to determine if they are smooth with respect to the prime factors.
+    \item \textbf{Linear Algebra:} The relations found during the sieving step are used to construct a matrix, which is then solved using linear algebra techniques (such as Gaussian elimination) to find dependencies between the relations.
+    \item \textbf{Square Root Extraction:} The final step involves taking the square root of the numbers obtained through the linear algebra step to find the factors of the composite number.
+\end{itemize}
+
+\paragraph{Code Explanation}
+
+The GNFS implementation in C is used for large-scale integer factorization. Although Python implementations exist, the C implementation is widely regarded as more efficient for computationally intensive tasks due to its lower-level optimizations and better memory management.
+
+\paragraph{GitHub Repository}
+The C-based GNFS code is available in the following GitHub repository:
+\begin{center}
+    \url{https://github.com/MathSquared/general-number-field-sieve}
+\end{center}
+
+This implementation contains the full C code required to perform GNFS on large composite numbers. It includes optimizations and methods for polynomial selection, sieving, and matrix solving.
+
+\paragraph{Implementation Highlights}
+\begin{itemize}
+    \item \textbf{Efficient Sieving:} The code uses advanced sieving techniques to search for smooth numbers, a critical step in the GNFS.
+    \item \textbf{Linear Algebra Optimization:} The matrix solving phase leverages highly optimized linear algebra routines to handle large matrices that arise during the factorization process.
+    \item \textbf{Scalability:} This C implementation is designed to scale well with very large numbers, taking full advantage of the computational resources available.
+\end{itemize}
+
+\paragraph{Improvement}
+\begin{itemize}
+    \item \textbf{Parallelization:} The GNFS implementation can be further enhanced by parallelizing the sieving and linear algebra phases to take advantage of multi-core processors and distributed computing environments.
+    \item \textbf{Integration with Python:} Although the GNFS is implemented in C, it could be interfaced with Python using tools such as Cython or the `ctypes` library for easier integration with other Python-based algorithms or applications.
+\end{itemize}
+
+\paragraph{Conclusion}
+The General Number Field Sieve is one of the most powerful integer factorization algorithms available, especially for very large numbers. While the implementation is in C for performance reasons, the algorithm provides a foundation for factoring large integers and can be integrated into larger systems for cryptography or mathematical research. The GitHub repository provides an efficient and optimized version of GNFS suitable for practical use.
+
+\section{Comparison of Algorithms}
+
+In this section, we compare the various factorization algorithms discussed in this report: Trial Division, Wheel Factorization, Fermat’s Method, Pollard's Rho, Quadratic Sieve, and General Number Field Sieve (GNFS). Each of these algorithms has its strengths and weaknesses, making them suitable for different types of numbers and use cases. Below is a comparison based on several criteria.
+
+\subsection{Comparison Criteria}
+We compare the algorithms based on the following parameters:
+\begin{itemize}
+    \item \textbf{Time Complexity:} The asymptotic time complexity that describes how the algorithm scales with the size of the input.
+    \item \textbf{Efficiency:} Practical performance, including how quickly the algorithm performs for small, medium, and large inputs.
+    \item \textbf{Suitability for Large Numbers:} The algorithm's effectiveness when dealing with very large composite numbers, such as those used in cryptographic applications.
+    \item \textbf{Parallelism:} The ability to parallelize or distribute the computation across multiple processors or machines.
+    \item \textbf{Ease of Implementation:} The complexity of implementing the algorithm from scratch.
+\end{itemize}
+
+\subsection{Algorithm Comparison Table}
+
+\begin{table}[h]
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{|c|c|c|c|c|c|}
+\hline
+\textbf{Algorithm} & \textbf{Time Complexity} & \textbf{Efficiency} & \textbf{Suitability for Large Numbers} & \textbf{Parallelism} & \textbf{Ease of Implementation} \\ \hline
+Trial Division & $O(\sqrt{n})$ & Low for large numbers & Poor for large numbers & No & Easy \\ \hline
+Wheel Factorization & $O(\sqrt{n}/\log{n})$ & Moderate & Poor for large numbers & No & Moderate \\ \hline
+Fermat's Method & $O(n^{1/4})$ & Moderate & Poor for large numbers & No & Moderate \\ \hline
+Pollard's Rho & $O(n^{1/4})$ & Moderate to High & Poor to Moderate for large numbers & Yes (limited) & Moderate \\ \hline
+Quadratic Sieve & $O(e^{\sqrt{\ln{n} \ln\ln{n}}})$ & High for numbers up to 100–200 digits & Moderate for large numbers & Yes & Advanced \\ \hline
+General Number Field Sieve (GNFS) & $O\left(e^{(64/9)^{1/3} (\ln{n})^{1/3} (\ln\ln{n})^{2/3}}\right)$ & Very High for very large numbers & Excellent for numbers over 100 digits & Yes (high parallelism) & Very Advanced \\ \hline
+\end{tabular}
+}
+\label{tab:comparison}
+\end{table}
+
+\subsection{Discussion}
+
+\begin{itemize}
+    \item \textbf{Trial Division:} This is the simplest algorithm, but it becomes inefficient for large numbers due to its $O(\sqrt{n})$ time complexity. It is suitable for small numbers or as a preprocessing step in other algorithms.
+    
+    \item \textbf{Wheel Factorization:} This improves on trial division by skipping multiples of small primes, but its performance is still limited for large numbers. It can be used to optimize trial division but is not suitable for numbers with many large factors.
+    
+    \item \textbf{Fermat's Method:} While it has a better time complexity of $O(n^{1/4})$, it is still inefficient for larger numbers and may not work well for numbers that are not the product of two primes close to each other.
+    
+    \item \textbf{Pollard's Rho:} A more efficient algorithm with a time complexity of $O(n^{1/4})$, Pollard's Rho is useful for finding smaller factors of large composite numbers. However, its performance can degrade as the number size increases.
+    
+    \item \textbf{Quadratic Sieve:} This algorithm is very efficient for numbers with 100–200 digits, offering significant improvements over previous methods. It is one of the best algorithms for numbers of this size but may not perform well for numbers larger than 200 digits.
+    
+    \item \textbf{General Number Field Sieve (GNFS):} GNFS is the most efficient algorithm for very large numbers, particularly those with over 100 digits. It has an excellent time complexity and scalability, making it the best choice for cryptographic applications like RSA encryption. However, it is very complex and requires significant computational resources, as well as advanced parallelization techniques.
+\end{itemize}
+
+\subsection{Conclusion}
+
+The choice of factorization algorithm depends heavily on the size and nature of the number being factored. For small to medium-sized numbers, methods like trial division, Pollard's Rho, and the Quadratic Sieve are effective. For very large numbers, GNFS stands out as the most efficient method, although it requires specialized knowledge and computational power to implement. The comparison highlights the trade-offs between simplicity, efficiency, and suitability for large inputs, helping guide the selection of the best algorithm for specific use cases.
+
+\begin{thebibliography}{99}
+    \bibitem{wikipedia_wheel_factorization} Wikipedia. (n.d.). {\em Wheel Factorization}. Retrieved from \url{https://en.m.wikipedia.org/wiki/Wheel_factorization}
+    \bibitem{youtube_playlist} Primality Testing \& Factorization. (n.d.). YouTube Playlist. Retrieved from \url{https://youtube.com/playlist?list=PLLtQL9wSL16gTZ-OjCJNHe8E6GWPWpvRi&si=JvKOi26F7YGxWDkG}
+    \bibitem{wikipedia_pollard_rho} Wikipedia. (n.d.). {\em Pollard's Rho Algorithm}. Retrieved from \url{https://en.m.wikipedia.org/wiki/Pollard%27s_rho_algorithm}
+    \bibitem{github_repo2} NachiketUN. (n.d.). {\em Quadratic Sieve Algorithm Implementation}. GitHub Repository. Retrieved from \url{https://github.com/NachiketUN/Quadratic-Sieve-Algorithm}
+    \bibitem{github_repo} General Number Field Sieve Implementation. (n.d.). GitHub Repository. Retrieved from \url{https://github.com/MathSquared/general-number-field-sieve}
+\end{thebibliography}
+
+\end{document}
