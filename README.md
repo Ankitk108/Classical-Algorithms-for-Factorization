@@ -43,8 +43,7 @@ Classical-Algorithm-for-Factorization/
 ├──FermatFactorization.ipynb                  # Implementation of Fermat's Factorization  
 ├── trial_division.ipynb                      # Implementation of Trial Division Algorithm  
 ├── pollards_rho.ipynb                        # Implementation of Pollard's Rho Algorithm  
-├── MillerRabinPrimality.py                   # Miller-Rabin Primality Test Implementation  
-├── main.tex                                  # Latex File   
+├── MillerRabinPrimality.py                   # Miller-Rabin Primality Test Implementation
 ├──wheel_factorization.py                     # Implementation of Wheel Factorization Algorithm  
 ├── prime.json                                # JSON file containing precomputed primes for optimization  
 ├── Manage_Primes.py                          # Utility script for managing prime numbers  
